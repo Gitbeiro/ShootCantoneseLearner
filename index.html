@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粵語射擊學習 - Cantonese Shooter Learning Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="header">
+            <h1>粵語射擊學習 Cantonese Shooter</h1>
+            <div id="game-info">
+                <div id="score">Score: <span id="score-value">0</span></div>
+                <div id="lives">Lives: <span id="lives-value">3</span></div>
+                <div id="level">Level: <span id="level-value">1</span></div>
+            </div>
+        </div>
+
+        <div id="word-display">
+            <div id="current-word">
+                <div id="word-chinese"></div>
+                <div id="word-jyutping"></div>
+                <div id="word-english"></div>
+            </div>
+        </div>
+
+        <canvas id="game-canvas"></canvas>
+
+        <div id="controls-info">
+            <p>Controls: ← → Arrow Keys to Move | Space to Shoot | Click word to hear pronunciation</p>
+            <button id="start-button">Start Game</button>
+            <button id="pause-button" style="display:none;">Pause</button>
+        </div>
+
+        <div id="game-over" style="display:none;">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <p>Words Learned: <span id="words-learned">0</span></p>
+            <button id="restart-button">Play Again</button>
+        </div>
+    </div>
+
+    <script src="words.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

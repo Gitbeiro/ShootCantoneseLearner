@@ -1,333 +1,395 @@
 // Game Configuration
 const CONFIG = {
-    canvasWidth: 800,
-    canvasHeight: 500,
-    playerSpeed: 5,
-    bulletSpeed: 7,
-    enemySpeed: 2,
-    enemySpawnRate: 0.02, // Probability per frame
-    playerSize: 40,
-    bulletSize: 5,
-    enemySize: 50
+    playerMaxHp: 100,
+    playerStartHp: 100,
+    enemyBaseHp: 30,
+    enemyHpPerWave: 10,
+    attackDamage: 20,
+    wrongAnswerDamage: 15,
+    healCost: 10,
+    healAmount: 30,
+    enemiesPerWave: 3,
+    enemiesIncreasePerWave: 1
 };
 
 // Game State
 const gameState = {
     isRunning: false,
-    isPaused: false,
+    playerHp: CONFIG.playerStartHp,
     score: 0,
-    lives: 3,
-    level: 1,
+    wave: 1,
+    enemiesDefeated: 0,
     wordsLearned: new Set(),
-    currentWord: null,
-    player: null,
-    bullets: [],
-    enemies: [],
-    keys: {},
-    animationId: null
+    currentEnemy: null,
+    enemiesInWave: [],
+    currentWaveEnemyCount: 0,
+    isAttackMode: true,
+    currentQuestion: null,
+    answeredQuestions: new Set()
 };
-
-// Canvas Setup
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
-canvas.width = CONFIG.canvasWidth;
-canvas.height = CONFIG.canvasHeight;
-
-// Player Class
-class Player {
-    constructor() {
-        this.x = CONFIG.canvasWidth / 2;
-        this.y = CONFIG.canvasHeight - 60;
-        this.width = CONFIG.playerSize;
-        this.height = CONFIG.playerSize;
-        this.speed = CONFIG.playerSpeed;
-    }
-
-    draw() {
-        // Draw a spaceship-like triangle
-        ctx.fillStyle = '#00ff00';
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - this.width / 2, this.y + this.height);
-        ctx.lineTo(this.x + this.width / 2, this.y + this.height);
-        ctx.closePath();
-        ctx.fill();
-
-        // Add some detail
-        ctx.fillStyle = '#00aa00';
-        ctx.fillRect(this.x - 5, this.y + this.height - 15, 10, 10);
-    }
-
-    move() {
-        if (gameState.keys['ArrowLeft'] && this.x > this.width / 2) {
-            this.x -= this.speed;
-        }
-        if (gameState.keys['ArrowRight'] && this.x < CONFIG.canvasWidth - this.width / 2) {
-            this.x += this.speed;
-        }
-    }
-}
-
-// Bullet Class
-class Bullet {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.width = CONFIG.bulletSize;
-        this.height = CONFIG.bulletSize * 2;
-        this.speed = CONFIG.bulletSpeed;
-        this.active = true;
-    }
-
-    draw() {
-        ctx.fillStyle = '#ffff00';
-        ctx.fillRect(this.x - this.width / 2, this.y, this.width, this.height);
-    }
-
-    update() {
-        this.y -= this.speed;
-        if (this.y < 0) {
-            this.active = false;
-        }
-    }
-}
 
 // Enemy Class
 class Enemy {
-    constructor(word) {
+    constructor(word, wave) {
         this.word = word;
-        this.x = Math.random() * (CONFIG.canvasWidth - CONFIG.enemySize);
-        this.y = -CONFIG.enemySize;
-        this.width = CONFIG.enemySize;
-        this.height = CONFIG.enemySize;
-        this.speed = CONFIG.enemySpeed + (gameState.level - 1) * 0.5;
-        this.active = true;
-        this.color = this.getRandomColor();
+        this.maxHp = CONFIG.enemyBaseHp + (wave - 1) * CONFIG.enemyHpPerWave;
+        this.hp = this.maxHp;
+        this.name = word.english;
     }
 
-    getRandomColor() {
-        const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#fd79a8'];
-        return colors[Math.floor(Math.random() * colors.length)];
+    takeDamage(damage) {
+        this.hp = Math.max(0, this.hp - damage);
+        return this.hp <= 0;
     }
+}
 
-    draw() {
-        // Draw enemy body
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-
-        // Draw border
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
-
-        // Draw Chinese character
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px Microsoft JhengHei, Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.word.chinese, this.x + this.width / 2, this.y + this.height / 2);
-    }
-
-    update() {
-        this.y += this.speed;
-        if (this.y > CONFIG.canvasHeight) {
-            this.active = false;
-            // Lost a life when enemy passes
-            gameState.lives--;
-            updateUI();
-            if (gameState.lives <= 0) {
-                gameOver();
-            }
+// Question Types
+const questionTypes = [
+    {
+        type: 'char_to_english',
+        getQuestion: (word) => `What does "${word.chinese}" mean?`,
+        getCorrect: (word) => word.english,
+        getOptions: (word, allWords) => {
+            const others = allWords.filter(w => w.english !== word.english);
+            return shuffleArray([
+                word.english,
+                ...getRandomElements(others, 3).map(w => w.english)
+            ]);
+        }
+    },
+    {
+        type: 'char_to_jyutping',
+        getQuestion: (word) => `What is the jyutping for "${word.chinese}"?`,
+        getCorrect: (word) => word.jyutping,
+        getOptions: (word, allWords) => {
+            const others = allWords.filter(w => w.jyutping !== word.jyutping);
+            return shuffleArray([
+                word.jyutping,
+                ...getRandomElements(others, 3).map(w => w.jyutping)
+            ]);
+        }
+    },
+    {
+        type: 'english_to_char',
+        getQuestion: (word) => `Which character means "${word.english}"?`,
+        getCorrect: (word) => word.chinese,
+        getOptions: (word, allWords) => {
+            const others = allWords.filter(w => w.chinese !== word.chinese);
+            return shuffleArray([
+                word.chinese,
+                ...getRandomElements(others, 3).map(w => w.chinese)
+            ]);
+        }
+    },
+    {
+        type: 'jyutping_to_char',
+        getQuestion: (word) => `Which character has jyutping "${word.jyutping}"?`,
+        getCorrect: (word) => word.chinese,
+        getOptions: (word, allWords) => {
+            const others = allWords.filter(w => w.chinese !== word.chinese);
+            return shuffleArray([
+                word.chinese,
+                ...getRandomElements(others, 3).map(w => w.chinese)
+            ]);
         }
     }
-}
+];
 
-// Input Handling
-document.addEventListener('keydown', (e) => {
-    gameState.keys[e.key] = true;
-
-    if (e.key === ' ' && gameState.isRunning && !gameState.isPaused) {
-        e.preventDefault();
-        shoot();
+// Utility Functions
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-});
-
-document.addEventListener('keyup', (e) => {
-    gameState.keys[e.key] = false;
-});
-
-// Shooting Function
-function shoot() {
-    if (gameState.player) {
-        gameState.bullets.push(new Bullet(gameState.player.x, gameState.player.y));
-    }
+    return arr;
 }
 
-// Collision Detection
-function checkCollision(rect1, rect2) {
-    return rect1.x < rect2.x + rect2.width &&
-           rect1.x + rect1.width > rect2.x &&
-           rect1.y < rect2.y + rect2.height &&
-           rect1.y + rect1.height > rect2.y;
+function getRandomElements(array, count) {
+    const shuffled = shuffleArray(array);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-// Enemy Spawning
-function spawnEnemy() {
-    if (Math.random() < CONFIG.enemySpawnRate * gameState.level) {
-        const word = getRandomWord();
-        gameState.enemies.push(new Enemy(word));
-    }
-}
-
-// Update Current Word Display
-function updateWordDisplay(word) {
-    gameState.currentWord = word;
-    document.getElementById('word-chinese').textContent = word.chinese;
-    document.getElementById('word-jyutping').textContent = word.jyutping;
-    document.getElementById('word-english').textContent = word.english;
-}
-
-// Update UI
-function updateUI() {
-    document.getElementById('score-value').textContent = gameState.score;
-    document.getElementById('lives-value').textContent = gameState.lives;
-    document.getElementById('level-value').textContent = gameState.level;
-}
-
-// Game Loop
-function gameLoop() {
-    if (!gameState.isRunning || gameState.isPaused) {
-        return;
-    }
-
-    // Clear canvas
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
-
-    // Draw stars background
-    drawStars();
-
-    // Update and draw player
-    gameState.player.move();
-    gameState.player.draw();
-
-    // Update and draw bullets
-    gameState.bullets = gameState.bullets.filter(bullet => {
-        bullet.update();
-        if (bullet.active) {
-            bullet.draw();
-            return true;
-        }
-        return false;
-    });
-
-    // Spawn enemies
-    spawnEnemy();
-
-    // Update and draw enemies
-    gameState.enemies = gameState.enemies.filter(enemy => {
-        enemy.update();
-
-        // Check collision with bullets
-        for (let i = 0; i < gameState.bullets.length; i++) {
-            const bullet = gameState.bullets[i];
-            if (checkCollision(bullet, enemy)) {
-                // Hit!
-                bullet.active = false;
-                enemy.active = false;
-                gameState.score += 10;
-                gameState.wordsLearned.add(enemy.word.chinese);
-                updateWordDisplay(enemy.word);
-                pronounceCantonese(enemy.word);
-                updateUI();
-
-                // Level up every 100 points
-                if (gameState.score % 100 === 0 && gameState.score > 0) {
-                    gameState.level++;
-                    updateUI();
-                }
-
-                break;
-            }
-        }
-
-        if (enemy.active) {
-            enemy.draw();
-            return true;
-        }
-        return false;
-    });
-
-    gameState.animationId = requestAnimationFrame(gameLoop);
-}
-
-// Stars for background effect
-const stars = [];
-for (let i = 0; i < 100; i++) {
-    stars.push({
-        x: Math.random() * CONFIG.canvasWidth,
-        y: Math.random() * CONFIG.canvasHeight,
-        size: Math.random() * 2
-    });
-}
-
-function drawStars() {
-    ctx.fillStyle = '#ffffff';
-    stars.forEach(star => {
-        ctx.fillRect(star.x, star.y, star.size, star.size);
-        star.y += 0.5;
-        if (star.y > CONFIG.canvasHeight) {
-            star.y = 0;
-            star.x = Math.random() * CONFIG.canvasWidth;
-        }
-    });
+function getRandomQuestionType() {
+    return questionTypes[Math.floor(Math.random() * questionTypes.length)];
 }
 
 // Start Game
 function startGame() {
     gameState.isRunning = true;
-    gameState.isPaused = false;
+    gameState.playerHp = CONFIG.playerStartHp;
     gameState.score = 0;
-    gameState.lives = 3;
-    gameState.level = 1;
+    gameState.wave = 1;
+    gameState.enemiesDefeated = 0;
     gameState.wordsLearned.clear();
-    gameState.player = new Player();
-    gameState.bullets = [];
-    gameState.enemies = [];
-    gameState.currentWord = getRandomWord();
-
-    updateWordDisplay(gameState.currentWord);
-    updateUI();
+    gameState.answeredQuestions.clear();
+    gameState.isAttackMode = true;
 
     document.getElementById('start-button').style.display = 'none';
-    document.getElementById('pause-button').style.display = 'inline-block';
     document.getElementById('game-over').style.display = 'none';
 
-    gameLoop();
+    updateUI();
+    startWave();
 }
 
-// Pause Game
-function pauseGame() {
-    gameState.isPaused = !gameState.isPaused;
-    const pauseButton = document.getElementById('pause-button');
-    pauseButton.textContent = gameState.isPaused ? 'Resume' : 'Pause';
+// Start Wave
+function startWave() {
+    const enemyCount = CONFIG.enemiesPerWave + Math.floor((gameState.wave - 1) / 2) * CONFIG.enemiesIncreasePerWave;
+    gameState.currentWaveEnemyCount = enemyCount;
+    gameState.enemiesInWave = [];
 
-    if (!gameState.isPaused) {
-        gameLoop();
+    for (let i = 0; i < enemyCount; i++) {
+        const word = getRandomWord();
+        gameState.enemiesInWave.push(new Enemy(word, gameState.wave));
     }
+
+    nextEnemy();
+}
+
+// Next Enemy
+function nextEnemy() {
+    if (gameState.enemiesInWave.length === 0) {
+        // Wave complete
+        completeWave();
+        return;
+    }
+
+    gameState.currentEnemy = gameState.enemiesInWave.shift();
+    displayEnemy();
+    generateQuestion();
+}
+
+// Display Enemy
+function displayEnemy() {
+    document.getElementById('current-enemy').style.display = 'block';
+    document.getElementById('wave-complete').style.display = 'none';
+    document.getElementById('enemy-name').textContent = gameState.currentEnemy.name;
+    document.getElementById('enemy-character').textContent = gameState.currentEnemy.word.chinese;
+    updateEnemyHP();
+
+    document.getElementById('question-panel').style.display = 'block';
+    document.getElementById('word-learning').style.display = 'none';
+}
+
+// Update Enemy HP
+function updateEnemyHP() {
+    const enemy = gameState.currentEnemy;
+    document.getElementById('enemy-hp-value').textContent = enemy.hp;
+    document.getElementById('enemy-max-hp').textContent = enemy.maxHp;
+
+    const hpPercent = (enemy.hp / enemy.maxHp) * 100;
+    document.getElementById('enemy-hp-bar').style.width = hpPercent + '%';
+}
+
+// Update Player HP
+function updatePlayerHP() {
+    gameState.playerHp = Math.min(CONFIG.playerMaxHp, Math.max(0, gameState.playerHp));
+    document.getElementById('player-hp-value').textContent = gameState.playerHp;
+
+    const hpPercent = (gameState.playerHp / CONFIG.playerMaxHp) * 100;
+    document.getElementById('player-hp-bar').style.width = hpPercent + '%';
+
+    // Change HP bar color based on health
+    const hpBar = document.getElementById('player-hp-bar');
+    if (hpPercent <= 25) {
+        hpBar.style.background = 'linear-gradient(90deg, #f44336 0%, #e91e63 100%)';
+    } else if (hpPercent <= 50) {
+        hpBar.style.background = 'linear-gradient(90deg, #ff9800 0%, #ffc107 100%)';
+    } else {
+        hpBar.style.background = 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)';
+    }
+
+    if (gameState.playerHp <= 0) {
+        gameOver();
+    }
+}
+
+// Update UI
+function updateUI() {
+    document.getElementById('wave-value').textContent = gameState.wave;
+    document.getElementById('score-value').textContent = gameState.score;
+    document.getElementById('enemies-defeated-value').textContent = gameState.enemiesDefeated;
+    updatePlayerHP();
+}
+
+// Generate Question
+function generateQuestion() {
+    // For healing questions, use a different word than the current enemy
+    let word;
+    if (gameState.isAttackMode) {
+        word = gameState.currentEnemy.word;
+    } else {
+        // Get a different word for healing
+        word = getRandomWord();
+        // Make sure it's not the same as current enemy
+        let attempts = 0;
+        while (word.chinese === gameState.currentEnemy.word.chinese && attempts < 10) {
+            word = getRandomWord();
+            attempts++;
+        }
+    }
+
+    const questionType = getRandomQuestionType();
+    const question = questionType.getQuestion(word);
+    const correctAnswer = questionType.getCorrect(word);
+    const options = questionType.getOptions(word, cantoneseWords);
+
+    gameState.currentQuestion = {
+        word: word,
+        type: questionType,
+        correctAnswer: correctAnswer,
+        options: options
+    };
+
+    displayQuestion();
+}
+
+// Display Question
+function displayQuestion() {
+    const modeText = gameState.isAttackMode ? 'Attack' : 'Heal';
+    document.getElementById('question-text').textContent = gameState.currentQuestion.type.getQuestion(gameState.currentQuestion.word);
+
+    const optionButtons = document.querySelectorAll('.option-btn');
+    gameState.currentQuestion.options.forEach((option, index) => {
+        const btn = optionButtons[index];
+        btn.textContent = option;
+        btn.disabled = false;
+        btn.classList.remove('correct', 'incorrect');
+        btn.onclick = () => selectAnswer(option, btn);
+    });
+
+    document.getElementById('feedback').style.display = 'none';
+}
+
+// Select Answer
+function selectAnswer(selectedAnswer, button) {
+    const isCorrect = selectedAnswer === gameState.currentQuestion.correctAnswer;
+
+    // Disable all buttons
+    const optionButtons = document.querySelectorAll('.option-btn');
+    optionButtons.forEach(btn => {
+        btn.disabled = true;
+        // Highlight correct answer
+        if (btn.textContent === gameState.currentQuestion.correctAnswer) {
+            btn.classList.add('correct');
+        }
+    });
+
+    // Mark selected answer
+    if (!isCorrect) {
+        button.classList.add('incorrect');
+    }
+
+    // Show feedback
+    const feedback = document.getElementById('feedback');
+    feedback.style.display = 'block';
+
+    if (gameState.isAttackMode) {
+        if (isCorrect) {
+            // Attack enemy
+            const defeated = gameState.currentEnemy.takeDamage(CONFIG.attackDamage);
+            feedback.textContent = `✓ Correct! You dealt ${CONFIG.attackDamage} damage!`;
+            feedback.className = 'correct';
+
+            updateEnemyHP();
+            gameState.score += 10;
+
+            if (defeated) {
+                gameState.enemiesDefeated++;
+                gameState.wordsLearned.add(gameState.currentEnemy.word.chinese);
+
+                setTimeout(() => {
+                    showWordLearning(gameState.currentEnemy.word);
+                }, 1500);
+            } else {
+                setTimeout(() => {
+                    generateQuestion();
+                }, 1500);
+            }
+        } else {
+            // Player takes damage
+            gameState.playerHp -= CONFIG.wrongAnswerDamage;
+            feedback.textContent = `✗ Wrong! You took ${CONFIG.wrongAnswerDamage} damage!`;
+            feedback.className = 'incorrect';
+
+            updatePlayerHP();
+
+            if (gameState.playerHp > 0) {
+                setTimeout(() => {
+                    generateQuestion();
+                }, 1500);
+            }
+        }
+    } else {
+        // Heal mode
+        if (isCorrect) {
+            const healedAmount = Math.min(CONFIG.healAmount, CONFIG.playerMaxHp - gameState.playerHp);
+            gameState.playerHp += healedAmount;
+            feedback.textContent = `✓ Correct! You healed ${healedAmount} HP!`;
+            feedback.className = 'correct';
+
+            updatePlayerHP();
+            gameState.score += 5;
+        } else {
+            feedback.textContent = `✗ Wrong! No healing effect.`;
+            feedback.className = 'incorrect';
+        }
+
+        // Switch back to attack mode
+        gameState.isAttackMode = true;
+        document.getElementById('attack-mode').classList.add('active');
+        document.getElementById('heal-mode').classList.remove('active');
+
+        setTimeout(() => {
+            generateQuestion();
+        }, 1500);
+    }
+
+    updateUI();
+}
+
+// Show Word Learning
+function showWordLearning(word) {
+    document.getElementById('question-panel').style.display = 'none';
+    document.getElementById('word-learning').style.display = 'block';
+
+    document.querySelector('.learned-chinese').textContent = word.chinese;
+    document.querySelector('.learned-jyutping').textContent = word.jyutping;
+    document.querySelector('.learned-english').textContent = word.english;
+
+    // Auto pronounce
+    pronounceCantonese(word);
+
+    setTimeout(() => {
+        nextEnemy();
+    }, 3000);
+}
+
+// Complete Wave
+function completeWave() {
+    document.getElementById('current-enemy').style.display = 'none';
+    document.getElementById('wave-complete').style.display = 'block';
+    document.getElementById('question-panel').style.display = 'none';
+
+    gameState.wave++;
+    gameState.score += gameState.wave * 10;
+    updateUI();
+
+    setTimeout(() => {
+        startWave();
+    }, 2500);
 }
 
 // Game Over
 function gameOver() {
     gameState.isRunning = false;
-    if (gameState.animationId) {
-        cancelAnimationFrame(gameState.animationId);
-    }
 
+    document.getElementById('final-waves').textContent = gameState.wave - 1;
     document.getElementById('final-score').textContent = gameState.score;
+    document.getElementById('final-enemies').textContent = gameState.enemiesDefeated;
     document.getElementById('words-learned').textContent = gameState.wordsLearned.size;
+
     document.getElementById('game-over').style.display = 'block';
-    document.getElementById('pause-button').style.display = 'none';
 }
 
 // Restart Game
@@ -335,18 +397,47 @@ function restartGame() {
     startGame();
 }
 
+// Toggle Action Mode
+function toggleAttackMode() {
+    if (!gameState.isAttackMode) {
+        gameState.isAttackMode = true;
+        document.getElementById('attack-mode').classList.add('active');
+        document.getElementById('heal-mode').classList.remove('active');
+        generateQuestion();
+    }
+}
+
+function toggleHealMode() {
+    if (gameState.isAttackMode && gameState.playerHp >= CONFIG.healCost) {
+        // Check if player has enough HP to attempt healing
+        if (gameState.playerHp <= CONFIG.healCost) {
+            alert('Not enough HP to attempt healing!');
+            return;
+        }
+
+        gameState.isAttackMode = false;
+        document.getElementById('attack-mode').classList.remove('active');
+        document.getElementById('heal-mode').classList.add('active');
+
+        // Deduct heal cost
+        gameState.playerHp -= CONFIG.healCost;
+        updatePlayerHP();
+
+        generateQuestion();
+    }
+}
+
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startGame);
-document.getElementById('pause-button').addEventListener('click', pauseGame);
 document.getElementById('restart-button').addEventListener('click', restartGame);
+document.getElementById('attack-mode').addEventListener('click', toggleAttackMode);
+document.getElementById('heal-mode').addEventListener('click', toggleHealMode);
 
-// Click on word display to hear pronunciation
-document.getElementById('word-display').addEventListener('click', () => {
-    if (gameState.currentWord) {
-        pronounceCantonese(gameState.currentWord);
+document.getElementById('hear-pronunciation').addEventListener('click', () => {
+    if (gameState.currentEnemy) {
+        pronounceCantonese(gameState.currentEnemy.word);
     }
 });
 
-// Initialize
-updateWordDisplay(getRandomWord());
+// Initialize UI
 updateUI();

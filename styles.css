@@ -12,6 +12,7 @@ body {
     align-items: center;
     min-height: 100vh;
     color: #333;
+    padding: 20px;
 }
 
 #game-container {
@@ -20,18 +21,18 @@ body {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     padding: 20px;
     max-width: 900px;
-    width: 95%;
+    width: 100%;
 }
 
 #header {
     text-align: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 #header h1 {
     font-size: 28px;
     color: #667eea;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
 #game-info {
@@ -40,85 +41,288 @@ body {
     font-size: 18px;
     font-weight: bold;
     color: #555;
-    padding: 10px;
+    padding: 12px;
     background: #f0f0f0;
     border-radius: 8px;
 }
 
-#word-display {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    padding: 15px;
+#game-screen {
+    min-height: 400px;
+    margin-bottom: 20px;
+}
+
+/* Player Stats */
+.stats-panel {
+    background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    padding: 20px;
     border-radius: 10px;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     text-align: center;
-    min-height: 100px;
+}
+
+.stats-panel h2 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+
+/* HP Bars */
+.hp-container {
+    margin: 10px 0;
+}
+
+.hp-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.hp-bar {
+    width: 100%;
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+    border: 2px solid #2c3e50;
+}
+
+.hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
+    transition: width 0.5s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-#word-display:hover {
-    transform: scale(1.02);
-}
-
-#current-word {
-    width: 100%;
-}
-
-#word-chinese {
-    font-size: 48px;
+    color: white;
     font-weight: bold;
-    color: white;
-    margin-bottom: 8px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-#word-jyutping {
-    font-size: 24px;
-    color: #fff3cd;
-    margin-bottom: 5px;
-    font-style: italic;
+.hp-fill.enemy {
+    background: linear-gradient(90deg, #f44336 0%, #e91e63 100%);
 }
 
-#word-english {
-    font-size: 20px;
-    color: white;
-    font-weight: 500;
-}
-
-#game-canvas {
-    display: block;
-    width: 100%;
-    height: 500px;
-    border: 3px solid #667eea;
+/* Enemy Display */
+#enemy-display {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    padding: 25px;
     border-radius: 10px;
-    background: #000;
+    margin-bottom: 20px;
+    text-align: center;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#enemy-display h2 {
+    color: #2c3e50;
     margin-bottom: 15px;
 }
 
+.enemy-character {
+    font-size: 80px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+    margin: 20px 0;
+}
+
+#wave-complete {
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+#wave-complete h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+/* Question Panel */
+#question-panel {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+#action-toggle {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.action-btn {
+    padding: 12px 24px;
+    font-size: 16px;
+    border: 2px solid #667eea;
+    background: white;
+    color: #667eea;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.action-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+#question-display {
+    margin: 20px 0;
+}
+
+#question-text {
+    font-size: 24px;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#options-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.option-btn {
+    padding: 20px;
+    font-size: 20px;
+    background: white;
+    border: 3px solid #667eea;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+    color: #2c3e50;
+    min-height: 80px;
+    font-family: 'Microsoft JhengHei', Arial, sans-serif;
+}
+
+.option-btn:hover {
+    background: #f0f4ff;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.option-btn:active {
+    transform: translateY(0);
+}
+
+.option-btn.correct {
+    background: #4caf50;
+    color: white;
+    border-color: #2e7d32;
+}
+
+.option-btn.incorrect {
+    background: #f44336;
+    color: white;
+    border-color: #c62828;
+}
+
+.option-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Feedback */
+#feedback {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#feedback.correct {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+#feedback.incorrect {
+    background: #ffcdd2;
+    color: #c62828;
+}
+
+/* Word Learning Display */
+#word-learning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.learned-chinese {
+    font-size: 64px;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.learned-jyutping {
+    font-size: 28px;
+    color: #fff3cd;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.learned-english {
+    font-size: 24px;
+    color: white;
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+
+#hear-pronunciation {
+    font-size: 18px;
+    padding: 10px 20px;
+    background: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #667eea;
+    transition: all 0.3s;
+}
+
+#hear-pronunciation:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Controls */
 #controls-info {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
 #controls-info p {
     color: #666;
-    margin-bottom: 10px;
-    font-size: 14px;
+    margin-bottom: 15px;
+    font-size: 16px;
 }
 
 button {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    padding: 12px 30px;
-    font-size: 16px;
+    padding: 14px 32px;
+    font-size: 18px;
     border-radius: 25px;
     cursor: pointer;
     margin: 5px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.3s;
     font-weight: bold;
 }
 
@@ -131,6 +335,7 @@ button:active {
     transform: translateY(0);
 }
 
+/* Game Over */
 #game-over {
     position: fixed;
     top: 50%;
@@ -142,6 +347,7 @@ button:active {
     box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
     text-align: center;
     z-index: 1000;
+    min-width: 350px;
 }
 
 #game-over h2 {
@@ -152,10 +358,37 @@ button:active {
 
 #game-over p {
     font-size: 20px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     color: #555;
 }
 
 #game-over button {
     margin-top: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #options-container {
+        grid-template-columns: 1fr;
+    }
+
+    #header h1 {
+        font-size: 22px;
+    }
+
+    #game-info {
+        font-size: 14px;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .option-btn {
+        font-size: 18px;
+        padding: 15px;
+        min-height: 60px;
+    }
+
+    .enemy-character {
+        font-size: 60px;
+    }
 }

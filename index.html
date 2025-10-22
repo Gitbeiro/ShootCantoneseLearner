@@ -3,39 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>粵語射擊學習 - Cantonese Shooter Learning Game</title>
+    <title>粵語RPG學習 - Cantonese RPG Learning Game</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="game-container">
         <div id="header">
-            <h1>粵語射擊學習 Cantonese Shooter</h1>
+            <h1>粵語RPG學習 Cantonese RPG Learner</h1>
             <div id="game-info">
+                <div id="wave">Wave: <span id="wave-value">1</span></div>
                 <div id="score">Score: <span id="score-value">0</span></div>
-                <div id="lives">Lives: <span id="lives-value">3</span></div>
-                <div id="level">Level: <span id="level-value">1</span></div>
+                <div id="enemies-defeated">Defeated: <span id="enemies-defeated-value">0</span></div>
             </div>
         </div>
 
-        <div id="word-display">
-            <div id="current-word">
-                <div id="word-chinese"></div>
-                <div id="word-jyutping"></div>
-                <div id="word-english"></div>
+        <div id="game-screen">
+            <!-- Player Stats -->
+            <div id="player-stats" class="stats-panel">
+                <h2>Your Hero</h2>
+                <div class="hp-container">
+                    <div class="hp-label">HP: <span id="player-hp-value">100</span> / 100</div>
+                    <div class="hp-bar">
+                        <div id="player-hp-bar" class="hp-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enemy Display -->
+            <div id="enemy-display">
+                <div id="current-enemy" style="display:none;">
+                    <h2>Enemy: <span id="enemy-name"></span></h2>
+                    <div class="enemy-character" id="enemy-character"></div>
+                    <div class="hp-container">
+                        <div class="hp-label">HP: <span id="enemy-hp-value">0</span> / <span id="enemy-max-hp">0</span></div>
+                        <div class="hp-bar enemy">
+                            <div id="enemy-hp-bar" class="hp-fill enemy" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="wave-complete" style="display:none;">
+                    <h2>Wave Complete!</h2>
+                    <p>Preparing next wave...</p>
+                </div>
+            </div>
+
+            <!-- Question Panel -->
+            <div id="question-panel" style="display:none;">
+                <div id="action-toggle">
+                    <button id="attack-mode" class="action-btn active">Attack</button>
+                    <button id="heal-mode" class="action-btn">Heal (Costs 10 HP)</button>
+                </div>
+
+                <div id="question-display">
+                    <h3 id="question-text"></h3>
+                    <div id="options-container">
+                        <button class="option-btn" data-index="0"></button>
+                        <button class="option-btn" data-index="1"></button>
+                        <button class="option-btn" data-index="2"></button>
+                        <button class="option-btn" data-index="3"></button>
+                    </div>
+                </div>
+
+                <div id="feedback" style="display:none;"></div>
+            </div>
+
+            <!-- Word Learning Display -->
+            <div id="word-learning" style="display:none;">
+                <div id="learned-word">
+                    <div class="learned-chinese"></div>
+                    <div class="learned-jyutping"></div>
+                    <div class="learned-english"></div>
+                    <button id="hear-pronunciation">🔊 Hear Pronunciation</button>
+                </div>
             </div>
         </div>
-
-        <canvas id="game-canvas"></canvas>
 
         <div id="controls-info">
-            <p>Controls: ← → Arrow Keys to Move | Space to Shoot | Click word to hear pronunciation</p>
+            <p>Answer questions correctly to attack enemies! Wrong answers damage you. Heal when needed!</p>
             <button id="start-button">Start Game</button>
-            <button id="pause-button" style="display:none;">Pause</button>
         </div>
 
         <div id="game-over" style="display:none;">
             <h2>Game Over!</h2>
+            <p>You survived <span id="final-waves">0</span> waves!</p>
             <p>Final Score: <span id="final-score">0</span></p>
+            <p>Enemies Defeated: <span id="final-enemies">0</span></p>
             <p>Words Learned: <span id="words-learned">0</span></p>
             <button id="restart-button">Play Again</button>
         </div>

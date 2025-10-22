@@ -90,26 +90,30 @@ function pronounceCantonese(word) {
     if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(word.chinese);
 
-        // Try to find a Cantonese voice
+        // Try to find a Cantonese voice (zh-HK only, not zh-CN which is Mandarin)
         const voices = speechSynthesis.getVoices();
         const cantoneseVoice = voices.find(voice =>
             voice.lang.includes('zh-HK') ||
-            voice.lang.includes('yue') ||
-            voice.lang.includes('zh-TW')
+            voice.lang.includes('yue-HK')
         );
 
         if (cantoneseVoice) {
             utterance.voice = cantoneseVoice;
+            utterance.lang = 'zh-HK';
         } else {
-            // Fallback to any Chinese voice
-            const chineseVoice = voices.find(voice => voice.lang.includes('zh'));
-            if (chineseVoice) {
-                utterance.voice = chineseVoice;
+            // Only use zh-TW (Taiwan) as fallback, NOT zh-CN (Mandarin)
+            const taiwaneseVoice = voices.find(voice => voice.lang.includes('zh-TW'));
+            if (taiwaneseVoice) {
+                utterance.voice = taiwaneseVoice;
+                utterance.lang = 'zh-TW';
+            } else {
+                // Show warning that proper Cantonese voice is not available
+                console.warn('No Cantonese (zh-HK) or Taiwanese (zh-TW) voice found. Pronunciation may be incorrect.');
+                utterance.lang = 'zh-HK'; // Set language even without voice
             }
         }
 
-        utterance.lang = 'zh-HK';
-        utterance.rate = 0.8; // Slower for learning
+        utterance.rate = 0.7; // Slower for learning
 
         speechSynthesis.cancel(); // Cancel any ongoing speech
         speechSynthesis.speak(utterance);

@@ -34,6 +34,7 @@
                 <div id="current-enemy" style="display:none;">
                     <h2>Enemy: <span id="enemy-name"></span></h2>
                     <div class="enemy-character" id="enemy-character"></div>
+                    <div id="enemy-speech" class="enemy-speech" style="display:none;"></div>
                     <div class="hp-container">
                         <div class="hp-label">HP: <span id="enemy-hp-value">0</span> / <span id="enemy-max-hp">0</span></div>
                         <div class="hp-bar enemy">
@@ -79,7 +80,7 @@
         </div>
 
         <div id="controls-info">
-            <p>Answer questions correctly to attack enemies! Wrong answers damage you. Heal when needed!</p>
+            <p>Defeat enemies by mastering all aspects: writing, meaning, jyutping, and pronunciation!</p>
             <button id="start-button">Start Game</button>
         </div>
 
@@ -90,6 +91,12 @@
             <p>Enemies Defeated: <span id="final-enemies">0</span></p>
             <p>Words Learned: <span id="words-learned">0</span></p>
             <button id="restart-button">Play Again</button>
+        </div>
+
+        <!-- Defeated Words Section -->
+        <div id="defeated-words-section" class="defeated-words-section">
+            <h2>Defeated Words (Mastered)</h2>
+            <div id="defeated-words-list"></div>
         </div>
     </div>
 

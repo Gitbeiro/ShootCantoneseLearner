@@ -20,6 +20,7 @@ const gameState = {
     wave: 1,
     enemiesDefeated: 0,
     wordsLearned: new Set(),
+    defeatedWords: [], // Track defeated words with full details
     currentEnemy: null,
     enemiesInWave: [],
     currentWaveEnemyCount: 0,
@@ -35,11 +36,29 @@ class Enemy {
         this.maxHp = CONFIG.enemyBaseHp + (wave - 1) * CONFIG.enemyHpPerWave;
         this.hp = this.maxHp;
         this.name = word.english;
+
+        // Track which knowledge aspects have been demonstrated
+        this.defeatedAspects = {
+            writing: false,      // Can recognize the character
+            meaning: false,      // Knows the English meaning
+            jyutping: false,     // Knows the jyutping
+            pronunciation: false // Can recognize by sound
+        };
     }
 
     takeDamage(damage) {
         this.hp = Math.max(0, this.hp - damage);
         return this.hp <= 0;
+    }
+
+    isFullyDefeated() {
+        return Object.values(this.defeatedAspects).every(aspect => aspect);
+    }
+
+    getRemainingAspects() {
+        return Object.entries(this.defeatedAspects)
+            .filter(([_, completed]) => !completed)
+            .map(([aspect, _]) => aspect);
     }
 }
 
@@ -47,6 +66,7 @@ class Enemy {
 const questionTypes = [
     {
         type: 'char_to_english',
+        aspect: 'meaning',
         getQuestion: (word) => `What does "${word.chinese}" mean?`,
         getCorrect: (word) => word.english,
         getOptions: (word, allWords) => {
@@ -55,10 +75,12 @@ const questionTypes = [
                 word.english,
                 ...getRandomElements(others, 3).map(w => w.english)
             ]);
-        }
+        },
+        needsPronunciation: false
     },
     {
         type: 'char_to_jyutping',
+        aspect: 'jyutping',
         getQuestion: (word) => `What is the jyutping for "${word.chinese}"?`,
         getCorrect: (word) => word.jyutping,
         getOptions: (word, allWords) => {
@@ -67,10 +89,12 @@ const questionTypes = [
                 word.jyutping,
                 ...getRandomElements(others, 3).map(w => w.jyutping)
             ]);
-        }
+        },
+        needsPronunciation: false
     },
     {
         type: 'english_to_char',
+        aspect: 'writing',
         getQuestion: (word) => `Which character means "${word.english}"?`,
         getCorrect: (word) => word.chinese,
         getOptions: (word, allWords) => {
@@ -79,11 +103,13 @@ const questionTypes = [
                 word.chinese,
                 ...getRandomElements(others, 3).map(w => w.chinese)
             ]);
-        }
+        },
+        needsPronunciation: false
     },
     {
-        type: 'jyutping_to_char',
-        getQuestion: (word) => `Which character has jyutping "${word.jyutping}"?`,
+        type: 'pronunciation_to_char',
+        aspect: 'pronunciation',
+        getQuestion: (word) => `Which character did you hear? 🔊`,
         getCorrect: (word) => word.chinese,
         getOptions: (word, allWords) => {
             const others = allWords.filter(w => w.chinese !== word.chinese);
@@ -91,7 +117,8 @@ const questionTypes = [
                 word.chinese,
                 ...getRandomElements(others, 3).map(w => w.chinese)
             ]);
-        }
+        },
+        needsPronunciation: true
     }
 ];
 
@@ -110,8 +137,22 @@ function getRandomElements(array, count) {
     return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-function getRandomQuestionType() {
-    return questionTypes[Math.floor(Math.random() * questionTypes.length)];
+function getRandomQuestionType(enemy = null) {
+    if (!enemy || !gameState.isAttackMode) {
+        // For healing or no enemy, return any random question type
+        return questionTypes[Math.floor(Math.random() * questionTypes.length)];
+    }
+
+    // Get question types for aspects not yet defeated
+    const remainingAspects = enemy.getRemainingAspects();
+    const availableQuestions = questionTypes.filter(qt => remainingAspects.includes(qt.aspect));
+
+    if (availableQuestions.length === 0) {
+        // All aspects defeated, return any question
+        return questionTypes[Math.floor(Math.random() * questionTypes.length)];
+    }
+
+    return availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
 }
 
 // Start Game
@@ -122,6 +163,7 @@ function startGame() {
     gameState.wave = 1;
     gameState.enemiesDefeated = 0;
     gameState.wordsLearned.clear();
+    gameState.defeatedWords = [];
     gameState.answeredQuestions.clear();
     gameState.isAttackMode = true;
 
@@ -129,6 +171,7 @@ function startGame() {
     document.getElementById('game-over').style.display = 'none';
 
     updateUI();
+    updateDefeatedWordsList();
     startWave();
 }
 
@@ -229,7 +272,7 @@ function generateQuestion() {
         }
     }
 
-    const questionType = getRandomQuestionType();
+    const questionType = getRandomQuestionType(gameState.isAttackMode ? gameState.currentEnemy : null);
     const question = questionType.getQuestion(word);
     const correctAnswer = questionType.getCorrect(word);
     const options = questionType.getOptions(word, cantoneseWords);
@@ -242,6 +285,11 @@ function generateQuestion() {
     };
 
     displayQuestion();
+
+    // Auto-pronounce for listening questions
+    if (questionType.needsPronunciation) {
+        setTimeout(() => pronounceCantonese(word), 500);
+    }
 }
 
 // Display Question
@@ -286,25 +334,44 @@ function selectAnswer(selectedAnswer, button) {
 
     if (gameState.isAttackMode) {
         if (isCorrect) {
+            // Mark this aspect as defeated
+            const aspect = gameState.currentQuestion.type.aspect;
+            gameState.currentEnemy.defeatedAspects[aspect] = true;
+
             // Attack enemy
-            const defeated = gameState.currentEnemy.takeDamage(CONFIG.attackDamage);
+            const hpDepleted = gameState.currentEnemy.takeDamage(CONFIG.attackDamage);
+
+            // Make enemy "speak" when hit
+            showEnemySpeech(gameState.currentEnemy.word);
+            pronounceCantonese(gameState.currentEnemy.word);
+
             feedback.textContent = `✓ Correct! You dealt ${CONFIG.attackDamage} damage!`;
             feedback.className = 'correct';
 
             updateEnemyHP();
             gameState.score += 10;
 
-            if (defeated) {
+            // Check if enemy is fully defeated (all aspects mastered)
+            const fullyDefeated = gameState.currentEnemy.isFullyDefeated();
+
+            if (fullyDefeated) {
                 gameState.enemiesDefeated++;
                 gameState.wordsLearned.add(gameState.currentEnemy.word.chinese);
 
+                // Add to defeated words list
+                gameState.defeatedWords.push({
+                    ...gameState.currentEnemy.word,
+                    defeatedAt: Date.now()
+                });
+                updateDefeatedWordsList();
+
                 setTimeout(() => {
                     showWordLearning(gameState.currentEnemy.word);
-                }, 1500);
+                }, 2000);
             } else {
                 setTimeout(() => {
                     generateQuestion();
-                }, 1500);
+                }, 2000);
             }
         } else {
             // Player takes damage
@@ -427,6 +494,42 @@ function toggleHealMode() {
     }
 }
 
+// Show Enemy Speech (enemy speaks when hit)
+function showEnemySpeech(word) {
+    const enemySpeech = document.getElementById('enemy-speech');
+    if (!enemySpeech) return;
+
+    enemySpeech.textContent = `${word.chinese} (${word.jyutping})`;
+    enemySpeech.style.display = 'block';
+    enemySpeech.classList.add('speech-appear');
+
+    // Hide after animation
+    setTimeout(() => {
+        enemySpeech.style.display = 'none';
+        enemySpeech.classList.remove('speech-appear');
+    }, 2000);
+}
+
+// Update Defeated Words List
+function updateDefeatedWordsList() {
+    const defeatedList = document.getElementById('defeated-words-list');
+    if (!defeatedList) return;
+
+    if (gameState.defeatedWords.length === 0) {
+        defeatedList.innerHTML = '<p class="no-words">No words defeated yet</p>';
+        return;
+    }
+
+    defeatedList.innerHTML = gameState.defeatedWords.map((word, index) => `
+        <div class="defeated-word-item">
+            <span class="defeated-word-chinese">${word.chinese}</span>
+            <span class="defeated-word-jyutping">${word.jyutping}</span>
+            <span class="defeated-word-english">${word.english}</span>
+            <button class="replay-pronunciation" onclick="pronounceCantonese(cantoneseWords.find(w => w.chinese === '${word.chinese}'))">🔊</button>
+        </div>
+    `).join('');
+}
+
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startGame);
 document.getElementById('restart-button').addEventListener('click', restartGame);
@@ -441,3 +544,4 @@ document.getElementById('hear-pronunciation').addEventListener('click', () => {
 
 // Initialize UI
 updateUI();
+updateDefeatedWordsList();

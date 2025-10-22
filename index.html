@@ -20,12 +20,37 @@
         <div id="game-screen">
             <!-- Player Stats -->
             <div id="player-stats" class="stats-panel">
-                <h2>Your Hero</h2>
-                <div class="hp-container">
-                    <div class="hp-label">HP: <span id="player-hp-value">100</span> / 100</div>
-                    <div class="hp-bar">
-                        <div id="player-hp-bar" class="hp-fill" style="width: 100%"></div>
+                <div class="player-info-row">
+                    <div id="player-character-container">
+                        <div id="player-character" class="player-character">🧙</div>
+                        <div id="player-level-badge">Lv. <span id="player-level">1</span></div>
                     </div>
+                    <div class="player-bars">
+                        <h2>Your Hero</h2>
+                        <div class="stat-container">
+                            <div class="stat-label">HP: <span id="player-hp-value">100</span> / 100</div>
+                            <div class="stat-bar hp-bar">
+                                <div id="player-hp-bar" class="stat-fill hp-fill" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div class="stat-container">
+                            <div class="stat-label">Mana: <span id="player-mana-value">100</span> / 100</div>
+                            <div class="stat-bar mana-bar">
+                                <div id="player-mana-bar" class="stat-fill mana-fill" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div class="stat-container">
+                            <div class="stat-label">XP: <span id="player-xp">0 / 100</span></div>
+                            <div class="stat-bar xp-bar">
+                                <div id="player-xp-bar" class="stat-fill xp-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="combo-container" class="combo-display">
+                    <span class="combo-label">COMBO</span>
+                    <span id="combo-value" class="combo-value">0</span>
+                    <span class="combo-fire">🔥</span>
                 </div>
             </div>
 
@@ -50,8 +75,9 @@
             <!-- Question Panel -->
             <div id="question-panel" style="display:none;">
                 <div id="action-toggle">
-                    <button id="attack-mode" class="action-btn active">Attack</button>
-                    <button id="heal-mode" class="action-btn">Heal (Costs 10 HP)</button>
+                    <button id="attack-mode" class="action-btn active">⚔️ Attack</button>
+                    <button id="heal-mode" class="action-btn">💚 Heal (25 Mana)</button>
+                    <button id="power-attack-mode" class="action-btn" style="display:none;">⚡ Power Attack (40 Mana)</button>
                 </div>
 
                 <div id="question-display">
@@ -79,15 +105,18 @@
         </div>
 
         <div id="controls-info">
-            <p>Answer questions correctly to attack enemies! Wrong answers damage you. Heal when needed!</p>
+            <p>Answer questions correctly to attack enemies and gain XP! Level up to grow stronger and unlock abilities!</p>
+            <p>Use mana for special abilities. Mana regenerates when you defeat enemies!</p>
             <button id="start-button">Start Game</button>
         </div>
 
         <div id="game-over" style="display:none;">
             <h2>Game Over!</h2>
+            <p>You reached Level <span id="final-level">1</span>!</p>
             <p>You survived <span id="final-waves">0</span> waves!</p>
             <p>Final Score: <span id="final-score">0</span></p>
             <p>Enemies Defeated: <span id="final-enemies">0</span></p>
+            <p>Max Combo: <span id="final-combo">0</span>x</p>
             <p>Words Learned: <span id="words-learned">0</span></p>
             <button id="restart-button">Play Again</button>
         </div>

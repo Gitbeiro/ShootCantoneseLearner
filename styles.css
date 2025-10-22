@@ -57,7 +57,46 @@ body {
     padding: 20px;
     border-radius: 10px;
     margin-bottom: 20px;
-    text-align: center;
+}
+
+.player-info-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#player-character-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.player-character {
+    font-size: 80px;
+    transition: transform 0.5s ease;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) scale(var(--scale, 1)); }
+    50% { transform: translateY(-10px) scale(var(--scale, 1)); }
+}
+
+#player-level-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.player-bars {
+    flex: 1;
 }
 
 .stats-panel h2 {
@@ -66,18 +105,51 @@ body {
     font-size: 24px;
 }
 
-/* HP Bars */
-.hp-container {
+/* Stat Bars */
+.stat-container {
     margin: 10px 0;
 }
 
-.hp-label {
-    font-size: 18px;
+.stat-label {
+    font-size: 16px;
     font-weight: bold;
     color: #2c3e50;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 
+.stat-bar {
+    width: 100%;
+    height: 25px;
+    background: #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #2c3e50;
+}
+
+.stat-fill {
+    height: 100%;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.hp-fill {
+    background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
+}
+
+.mana-fill {
+    background: linear-gradient(90deg, #2196f3 0%, #64b5f6 100%);
+}
+
+.xp-fill {
+    background: linear-gradient(90deg, #ff9800 0%, #ffc107 100%);
+}
+
+/* HP Bar (old class for enemy compatibility) */
 .hp-bar {
     width: 100%;
     height: 30px;
@@ -87,19 +159,55 @@ body {
     border: 2px solid #2c3e50;
 }
 
-.hp-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
-    transition: width 0.5s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-}
-
 .hp-fill.enemy {
     background: linear-gradient(90deg, #f44336 0%, #e91e63 100%);
+    height: 100%;
+}
+
+/* Combo Display */
+.combo-display {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.combo-display.active {
+    opacity: 1;
+    background: rgba(255, 165, 0, 0.3);
+    box-shadow: 0 0 20px rgba(255, 165, 0, 0.5);
+}
+
+.combo-display.mega {
+    background: rgba(255, 0, 0, 0.3);
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+    animation: pulse 0.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.combo-label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-right: 5px;
+}
+
+.combo-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #ff6b00;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.combo-fire {
+    font-size: 24px;
+    margin-left: 5px;
 }
 
 /* Enemy Display */
@@ -366,6 +474,63 @@ button:active {
     margin-top: 20px;
 }
 
+/* Notification Styles */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: -400px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    font-weight: bold;
+    font-size: 16px;
+    z-index: 2000;
+    transition: right 0.3s ease;
+    max-width: 350px;
+}
+
+.notification.show {
+    right: 20px;
+}
+
+.notification.achievement {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.notification.level-up {
+    background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+    color: #333;
+    font-size: 18px;
+    animation: bounce 0.5s ease;
+}
+
+.notification.error {
+    background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    25% { transform: translateY(-10px); }
+    50% { transform: translateY(0); }
+    75% { transform: translateY(-5px); }
+}
+
+/* Critical Hit Feedback */
+#feedback.critical {
+    background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+    color: #333;
+    font-size: 22px;
+    animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     #options-container {
@@ -390,5 +555,22 @@ button:active {
 
     .enemy-character {
         font-size: 60px;
+    }
+
+    .player-info-row {
+        flex-direction: column;
+    }
+
+    .player-character {
+        font-size: 60px;
+    }
+
+    .notification {
+        max-width: 280px;
+        font-size: 14px;
+    }
+
+    #action-toggle {
+        flex-direction: column;
     }
 }

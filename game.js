@@ -2,20 +2,34 @@
 const CONFIG = {
     playerMaxHp: 100,
     playerStartHp: 100,
+    playerMaxMana: 100,
+    playerStartMana: 100,
+    manaRegenPerKill: 20,
     enemyBaseHp: 30,
     enemyHpPerWave: 10,
     attackDamage: 20,
     wrongAnswerDamage: 15,
-    healCost: 10,
+    healManaCost: 25,
     healAmount: 30,
+    powerAttackManaCost: 40,
+    powerAttackDamage: 40,
     enemiesPerWave: 3,
-    enemiesIncreasePerWave: 1
+    enemiesIncreasePerWave: 1,
+    xpPerEnemy: 20,
+    xpPerLevel: 100,
+    xpLevelIncrease: 50, // XP needed increases per level
+    critChance: 0.15, // 15% crit chance
+    critMultiplier: 2
 };
 
 // Game State
 const gameState = {
     isRunning: false,
     playerHp: CONFIG.playerStartHp,
+    playerMana: CONFIG.playerStartMana,
+    level: 1,
+    xp: 0,
+    xpToNextLevel: CONFIG.xpPerLevel,
     score: 0,
     wave: 1,
     enemiesDefeated: 0,
@@ -23,9 +37,22 @@ const gameState = {
     currentEnemy: null,
     enemiesInWave: [],
     currentWaveEnemyCount: 0,
-    isAttackMode: true,
+    currentAction: 'attack', // 'attack', 'heal', 'power_attack'
     currentQuestion: null,
-    answeredQuestions: new Set()
+    answeredQuestions: new Set(),
+    combo: 0,
+    maxCombo: 0,
+    achievements: {
+        firstBlood: false,
+        wave5: false,
+        wave10: false,
+        combo5: false,
+        combo10: false,
+        level5: false,
+        level10: false,
+        defeat50: false,
+        defeat100: false
+    }
 };
 
 // Enemy Class
@@ -114,21 +141,175 @@ function getRandomQuestionType() {
     return questionTypes[Math.floor(Math.random() * questionTypes.length)];
 }
 
+// XP and Leveling System
+function gainXP(amount) {
+    gameState.xp += amount;
+
+    while (gameState.xp >= gameState.xpToNextLevel) {
+        levelUp();
+    }
+
+    updateUI();
+}
+
+function levelUp() {
+    gameState.xp -= gameState.xpToNextLevel;
+    gameState.level++;
+    gameState.xpToNextLevel += CONFIG.xpLevelIncrease;
+
+    // Heal player on level up
+    gameState.playerHp = Math.min(CONFIG.playerMaxHp, gameState.playerHp + 30);
+    gameState.playerMana = CONFIG.playerMaxMana;
+
+    // Show level up notification
+    showNotification(`LEVEL UP! You are now level ${gameState.level}!`, 'level-up');
+
+    // Check level achievements
+    checkAchievement('level5', gameState.level >= 5);
+    checkAchievement('level10', gameState.level >= 10);
+
+    // Update character size
+    updateCharacterSize();
+}
+
+// Mana Management
+function updateMana(amount) {
+    gameState.playerMana = Math.min(CONFIG.playerMaxMana, Math.max(0, gameState.playerMana + amount));
+    updateManaBar();
+}
+
+function updateManaBar() {
+    const manaValue = document.getElementById('player-mana-value');
+    const manaBar = document.getElementById('player-mana-bar');
+
+    if (manaValue && manaBar) {
+        manaValue.textContent = gameState.playerMana;
+        const manaPercent = (gameState.playerMana / CONFIG.playerMaxMana) * 100;
+        manaBar.style.width = manaPercent + '%';
+    }
+}
+
+// Critical Hit System
+function isCriticalHit() {
+    return Math.random() < CONFIG.critChance;
+}
+
+// Combo System
+function increaseCombo() {
+    gameState.combo++;
+    if (gameState.combo > gameState.maxCombo) {
+        gameState.maxCombo = gameState.combo;
+    }
+
+    checkAchievement('combo5', gameState.combo >= 5);
+    checkAchievement('combo10', gameState.combo >= 10);
+
+    updateComboDisplay();
+}
+
+function resetCombo() {
+    gameState.combo = 0;
+    updateComboDisplay();
+}
+
+function updateComboDisplay() {
+    const comboEl = document.getElementById('combo-value');
+    if (comboEl) {
+        comboEl.textContent = gameState.combo;
+        const comboContainer = document.getElementById('combo-container');
+        if (comboContainer) {
+            if (gameState.combo >= 3) {
+                comboContainer.classList.add('active');
+                if (gameState.combo >= 5) {
+                    comboContainer.classList.add('mega');
+                } else {
+                    comboContainer.classList.remove('mega');
+                }
+            } else {
+                comboContainer.classList.remove('active', 'mega');
+            }
+        }
+    }
+}
+
+// Achievement System
+function checkAchievement(achievementId, condition) {
+    if (!gameState.achievements[achievementId] && condition) {
+        gameState.achievements[achievementId] = true;
+        showAchievement(achievementId);
+    }
+}
+
+function showAchievement(achievementId) {
+    const achievements = {
+        firstBlood: 'First Blood - Defeated your first enemy!',
+        wave5: 'Wave Warrior - Survived 5 waves!',
+        wave10: 'Wave Master - Survived 10 waves!',
+        combo5: 'Combo Starter - 5 correct answers in a row!',
+        combo10: 'Combo Master - 10 correct answers in a row!',
+        level5: 'Rising Star - Reached level 5!',
+        level10: 'Cantonese Scholar - Reached level 10!',
+        defeat50: 'Enemy Slayer - Defeated 50 enemies!',
+        defeat100: 'Legendary Warrior - Defeated 100 enemies!'
+    };
+
+    if (achievements[achievementId]) {
+        showNotification('Achievement Unlocked: ' + achievements[achievementId], 'achievement');
+    }
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Character Size Update
+function updateCharacterSize() {
+    const character = document.getElementById('player-character');
+    if (character) {
+        const scale = 1 + (gameState.level - 1) * 0.15; // Grows 15% per level
+        character.style.transform = `scale(${scale})`;
+    }
+}
+
 // Start Game
 function startGame() {
     gameState.isRunning = true;
     gameState.playerHp = CONFIG.playerStartHp;
+    gameState.playerMana = CONFIG.playerStartMana;
+    gameState.level = 1;
+    gameState.xp = 0;
+    gameState.xpToNextLevel = CONFIG.xpPerLevel;
     gameState.score = 0;
     gameState.wave = 1;
     gameState.enemiesDefeated = 0;
+    gameState.combo = 0;
+    gameState.maxCombo = 0;
     gameState.wordsLearned.clear();
     gameState.answeredQuestions.clear();
-    gameState.isAttackMode = true;
+    gameState.currentAction = 'attack';
+
+    // Reset achievements
+    for (let key in gameState.achievements) {
+        gameState.achievements[key] = false;
+    }
 
     document.getElementById('start-button').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
 
     updateUI();
+    updateCharacterSize();
     startWave();
 }
 
@@ -209,17 +390,32 @@ function updateUI() {
     document.getElementById('wave-value').textContent = gameState.wave;
     document.getElementById('score-value').textContent = gameState.score;
     document.getElementById('enemies-defeated-value').textContent = gameState.enemiesDefeated;
+
+    // Update level and XP
+    const levelEl = document.getElementById('player-level');
+    const xpEl = document.getElementById('player-xp');
+    const xpBar = document.getElementById('player-xp-bar');
+
+    if (levelEl) levelEl.textContent = gameState.level;
+    if (xpEl) xpEl.textContent = `${gameState.xp} / ${gameState.xpToNextLevel}`;
+    if (xpBar) {
+        const xpPercent = (gameState.xp / gameState.xpToNextLevel) * 100;
+        xpBar.style.width = xpPercent + '%';
+    }
+
     updatePlayerHP();
+    updateManaBar();
+    updateComboDisplay();
 }
 
 // Generate Question
 function generateQuestion() {
-    // For healing questions, use a different word than the current enemy
+    // For non-attack actions, use a different word than the current enemy
     let word;
-    if (gameState.isAttackMode) {
+    if (gameState.currentAction === 'attack' || gameState.currentAction === 'power_attack') {
         word = gameState.currentEnemy.word;
     } else {
-        // Get a different word for healing
+        // Get a different word for healing/other actions
         word = getRandomWord();
         // Make sure it's not the same as current enemy
         let attempts = 0;
@@ -246,7 +442,6 @@ function generateQuestion() {
 
 // Display Question
 function displayQuestion() {
-    const modeText = gameState.isAttackMode ? 'Attack' : 'Heal';
     document.getElementById('question-text').textContent = gameState.currentQuestion.type.getQuestion(gameState.currentQuestion.word);
 
     const optionButtons = document.querySelectorAll('.option-btn');
@@ -254,11 +449,12 @@ function displayQuestion() {
         const btn = optionButtons[index];
         btn.textContent = option;
         btn.disabled = false;
-        btn.classList.remove('correct', 'incorrect');
+        btn.classList.remove('correct', 'incorrect', 'critical');
         btn.onclick = () => selectAnswer(option, btn);
     });
 
     document.getElementById('feedback').style.display = 'none';
+    updateActionButtons();
 }
 
 // Select Answer
@@ -284,19 +480,52 @@ function selectAnswer(selectedAnswer, button) {
     const feedback = document.getElementById('feedback');
     feedback.style.display = 'block';
 
-    if (gameState.isAttackMode) {
+    if (gameState.currentAction === 'attack' || gameState.currentAction === 'power_attack') {
         if (isCorrect) {
+            // Increase combo
+            increaseCombo();
+
+            // Check for critical hit
+            const isCrit = isCriticalHit();
+            let damage = gameState.currentAction === 'power_attack' ? CONFIG.powerAttackDamage : CONFIG.attackDamage;
+
+            if (isCrit) {
+                damage = Math.floor(damage * CONFIG.critMultiplier);
+            }
+
+            // Add combo bonus (5% per combo level, max 50%)
+            const comboBonus = Math.min(gameState.combo - 1, 10) * 0.05;
+            damage = Math.floor(damage * (1 + comboBonus));
+
             // Attack enemy
-            const defeated = gameState.currentEnemy.takeDamage(CONFIG.attackDamage);
-            feedback.textContent = `✓ Correct! You dealt ${CONFIG.attackDamage} damage!`;
-            feedback.className = 'correct';
+            const defeated = gameState.currentEnemy.takeDamage(damage);
+
+            let feedbackText = `✓ Correct! You dealt ${damage} damage!`;
+            if (isCrit) {
+                feedbackText += ' CRITICAL HIT!';
+            }
+            if (gameState.combo > 1) {
+                feedbackText += ` (${gameState.combo}x combo!)`;
+            }
+
+            feedback.textContent = feedbackText;
+            feedback.className = 'correct' + (isCrit ? ' critical' : '');
 
             updateEnemyHP();
-            gameState.score += 10;
+            gameState.score += 10 + (gameState.combo * 2);
 
             if (defeated) {
                 gameState.enemiesDefeated++;
                 gameState.wordsLearned.add(gameState.currentEnemy.word.chinese);
+
+                // Gain XP and mana
+                gainXP(CONFIG.xpPerEnemy);
+                updateMana(CONFIG.manaRegenPerKill);
+
+                // Check achievements
+                checkAchievement('firstBlood', gameState.enemiesDefeated >= 1);
+                checkAchievement('defeat50', gameState.enemiesDefeated >= 50);
+                checkAchievement('defeat100', gameState.enemiesDefeated >= 100);
 
                 setTimeout(() => {
                     showWordLearning(gameState.currentEnemy.word);
@@ -307,6 +536,9 @@ function selectAnswer(selectedAnswer, button) {
                 }, 1500);
             }
         } else {
+            // Reset combo on wrong answer
+            resetCombo();
+
             // Player takes damage
             gameState.playerHp -= CONFIG.wrongAnswerDamage;
             feedback.textContent = `✗ Wrong! You took ${CONFIG.wrongAnswerDamage} damage!`;
@@ -320,7 +552,13 @@ function selectAnswer(selectedAnswer, button) {
                 }, 1500);
             }
         }
-    } else {
+
+        // Reset to normal attack mode after power attack
+        if (gameState.currentAction === 'power_attack') {
+            gameState.currentAction = 'attack';
+            updateActionButtons();
+        }
+    } else if (gameState.currentAction === 'heal') {
         // Heal mode
         if (isCorrect) {
             const healedAmount = Math.min(CONFIG.healAmount, CONFIG.playerMaxHp - gameState.playerHp);
@@ -330,15 +568,18 @@ function selectAnswer(selectedAnswer, button) {
 
             updatePlayerHP();
             gameState.score += 5;
+
+            // Increase combo for healing too
+            increaseCombo();
         } else {
             feedback.textContent = `✗ Wrong! No healing effect.`;
             feedback.className = 'incorrect';
+            resetCombo();
         }
 
         // Switch back to attack mode
-        gameState.isAttackMode = true;
-        document.getElementById('attack-mode').classList.add('active');
-        document.getElementById('heal-mode').classList.remove('active');
+        gameState.currentAction = 'attack';
+        updateActionButtons();
 
         setTimeout(() => {
             generateQuestion();
@@ -373,6 +614,11 @@ function completeWave() {
 
     gameState.wave++;
     gameState.score += gameState.wave * 10;
+
+    // Check wave achievements
+    checkAchievement('wave5', gameState.wave > 5);
+    checkAchievement('wave10', gameState.wave > 10);
+
     updateUI();
 
     setTimeout(() => {
@@ -385,8 +631,10 @@ function gameOver() {
     gameState.isRunning = false;
 
     document.getElementById('final-waves').textContent = gameState.wave - 1;
+    document.getElementById('final-level').textContent = gameState.level;
     document.getElementById('final-score').textContent = gameState.score;
     document.getElementById('final-enemies').textContent = gameState.enemiesDefeated;
+    document.getElementById('final-combo').textContent = gameState.maxCombo;
     document.getElementById('words-learned').textContent = gameState.wordsLearned.size;
 
     document.getElementById('game-over').style.display = 'block';
@@ -397,41 +645,78 @@ function restartGame() {
     startGame();
 }
 
-// Toggle Action Mode
-function toggleAttackMode() {
-    if (!gameState.isAttackMode) {
-        gameState.isAttackMode = true;
-        document.getElementById('attack-mode').classList.add('active');
-        document.getElementById('heal-mode').classList.remove('active');
-        generateQuestion();
+// Action Mode Functions
+function setActionMode(mode) {
+    // Check mana costs
+    if (mode === 'heal' && gameState.playerMana < CONFIG.healManaCost) {
+        showNotification('Not enough mana to heal!', 'error');
+        return;
     }
+
+    if (mode === 'power_attack' && gameState.playerMana < CONFIG.powerAttackManaCost) {
+        showNotification('Not enough mana for power attack!', 'error');
+        return;
+    }
+
+    // Deduct mana for special actions
+    if (mode === 'heal') {
+        updateMana(-CONFIG.healManaCost);
+    } else if (mode === 'power_attack') {
+        updateMana(-CONFIG.powerAttackManaCost);
+    }
+
+    gameState.currentAction = mode;
+    updateActionButtons();
+    generateQuestion();
 }
 
-function toggleHealMode() {
-    if (gameState.isAttackMode && gameState.playerHp >= CONFIG.healCost) {
-        // Check if player has enough HP to attempt healing
-        if (gameState.playerHp <= CONFIG.healCost) {
-            alert('Not enough HP to attempt healing!');
-            return;
+function updateActionButtons() {
+    // Update button states
+    document.getElementById('attack-mode').classList.toggle('active', gameState.currentAction === 'attack');
+    document.getElementById('heal-mode').classList.toggle('active', gameState.currentAction === 'heal');
+
+    const powerAttackBtn = document.getElementById('power-attack-mode');
+    if (powerAttackBtn) {
+        powerAttackBtn.classList.toggle('active', gameState.currentAction === 'power_attack');
+
+        // Show/hide power attack based on level
+        if (gameState.level >= 3) {
+            powerAttackBtn.style.display = 'block';
+        } else {
+            powerAttackBtn.style.display = 'none';
         }
+    }
 
-        gameState.isAttackMode = false;
-        document.getElementById('attack-mode').classList.remove('active');
-        document.getElementById('heal-mode').classList.add('active');
-
-        // Deduct heal cost
-        gameState.playerHp -= CONFIG.healCost;
-        updatePlayerHP();
-
-        generateQuestion();
+    // Disable buttons if not enough mana
+    document.getElementById('heal-mode').disabled = gameState.playerMana < CONFIG.healManaCost;
+    if (powerAttackBtn) {
+        powerAttackBtn.disabled = gameState.playerMana < CONFIG.powerAttackManaCost;
     }
 }
 
 // Event Listeners
 document.getElementById('start-button').addEventListener('click', startGame);
 document.getElementById('restart-button').addEventListener('click', restartGame);
-document.getElementById('attack-mode').addEventListener('click', toggleAttackMode);
-document.getElementById('heal-mode').addEventListener('click', toggleHealMode);
+document.getElementById('attack-mode').addEventListener('click', () => {
+    if (gameState.currentAction !== 'attack') {
+        setActionMode('attack');
+    }
+});
+document.getElementById('heal-mode').addEventListener('click', () => {
+    if (gameState.currentAction !== 'heal') {
+        setActionMode('heal');
+    }
+});
+
+// Power attack button (will be added to HTML)
+const powerAttackBtn = document.getElementById('power-attack-mode');
+if (powerAttackBtn) {
+    powerAttackBtn.addEventListener('click', () => {
+        if (gameState.currentAction !== 'power_attack') {
+            setActionMode('power_attack');
+        }
+    });
+}
 
 document.getElementById('hear-pronunciation').addEventListener('click', () => {
     if (gameState.currentEnemy) {
